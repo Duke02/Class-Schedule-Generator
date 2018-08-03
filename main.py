@@ -2,29 +2,39 @@ from ics import Calendar, Event
 from datetime import datetime, timedelta
 from pytz import timezone
 
+# If dt has already been localized, don't do anything.
+# Otherwise, localize the given datetime to Central US time.
 def localTimeToUTC(dt):
     if dt.tzinfo is not None:
         return dt # We assume it's already been through this process.
     centralDT = timezone("US/Central").localize(dt)
     return centralDT
 
+# Format the given datetime to Calendar date time format.
 def dateTimeToICS(datetime):
     return datetime.strftime("%Y%m%d %H:%M:%S")
 
+# Format the given ics time from Calendar date time format to python datetime format.
 def ICSToDateTime(icsTime):
     return datetime.strptime(icsTime, "%Y%m%d %H:%M:%S")
 
+# Get the next weekday from the week, converted to local time.
 def nextWeekday(d, weekday):
     daysAhead = weekday - d.weekday()
     if daysAhead <= 0: # Target day already happened this week
         daysAhead += 7
     return localTimeToUTC(d + timedelta(daysAhead))
 
+# Get all the datetimes for the course throughout the semester.
 def getAllDTs(startOfClass, endOfClass, endOfSemester, daysOfClass):
+    # Get starting and end of time for class.
     output = [(localTimeToUTC(startOfClass), localTimeToUTC(endOfClass))]
     nextDT = localTimeToUTC(startOfClass)
+    # While we're not at the end of the semester
     while nextDT.month is not endOfSemester.month or nextDT.day <= endOfSemester.day:
+        # For each day of class in the week,
         for weekday in daysOfClass:
+            # Get the next date of class for that week.
             nextDT = localTimeToUTC(nextWeekday(nextDT, weekday))
             output.append((nextDT, localTimeToUTC(datetime(nextDT.year, nextDT.month, nextDT.day, hour=endOfClass.hour, minute=endOfClass.minute))))
     return output
@@ -87,11 +97,14 @@ def makeClass(calendar, classesStartDate, classesEndDate):
 def main():
     c = Calendar()
     shouldContinue = True
+    startOfSemester = str(input("When is the start of the semester? Format: YYYY-mm-dd"))
+    endOfSemester = str(input("When is the end of the semester? Format: YYYY-mm-dd"))
+    continueStatement = "Would you like to continue? (y/n)"
     while shouldContinue:
-        events = makeClass(c, datetime.strptime("2018-08-14", "%Y-%m-%d"), datetime.strptime("2018-12-07", "%Y-%m-%d"))
+        events = makeClass(c, datetime.strptime(startOfSemester, "%Y-%m-%d"), datetime.strptime(endOfSemester, "%Y-%m-%d"))
         for e in events:
             c.events.append(e)
-        shouldContinue = input("Would you like to continue? (Y/N) ")[0] is 'y'
+        shouldContinue = input(continueStatement)[0] is 'y' or input(continueStatement)[0] == 'y'
     with open('uahClasses.ics', 'w') as f:
         f.writelines(c)
 
